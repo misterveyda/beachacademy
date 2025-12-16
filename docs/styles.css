@@ -1,16 +1,17 @@
 body{
-font-family: Arial, sans-serif;
-margin: 0;
-background: #f4f6f8;
+  font-family: Arial, sans-serif;
+  margin: 0;
+  background: #f4f6f8;
 }
 
 
 header {
-background: #0077b6;
-color: white;
-padding: 1rem;
-display: flex;
-justify-content: space-between;
+  background: linear-gradient(90deg,#0077b6,#00a3d9);
+  color: white;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 
@@ -18,20 +19,51 @@ justify-content: space-between;
 
 
 nav button {
-display: block;
-width: 100%;
-padding: 10px;
-margin: 5px 0;
-background: #0096c7;
-color: white;
-border: none;
-cursor: pointer;
+  display: block;
+  width: 100%;
+  padding: 10px;
+  margin: 5px 0;
+  background: #0096c7;
+  color: white;
+  border: none;
+  cursor: pointer;
 }
 
 
 .card {
-background: white;
-padding: 1rem;
-margin: 1rem;
-border-radius: 8px;
+  background: white;
+  padding: 1rem;
+  margin: 1rem;
+  border-radius: 8px;
+}
+
+/* Auth styles */
+.auth-card{
+  max-width: 420px;
+  margin: 2rem auto;
+  background: white;
+  padding: 1.25rem;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+}
+.form-row{ margin: 0.5rem 0; }
+.form-row input, .form-row select{ width: 100%; padding: 10px; border: 1px solid #dfe6eb; border-radius: 4px; }
+.form-actions{ display:flex; gap:8px; justify-content: flex-end; margin-top: 0.75rem }
+.form-actions button{ padding: 8px 12px; border-radius:6px; border:none; cursor:pointer }
+.form-actions #auth-submit{ background:#0077b6; color:white }
+.form-actions #toggle-auth{ background:transparent; color:#0077b6; border:1px solid #cfe8fb }
+
+#nav{ width:220px; padding:1rem }
+#content{ flex:1; padding:1rem }
+
+header h1{ margin:0 }
+#user-area{ display:flex; gap:10px; align-items:center }
+#logout-btn{ background:#ff6b6b; color:white; border:none; padding:6px 10px; border-radius:6px; cursor:pointer }
+
+/* Layout */
+@media(min-width:800px){
+  body{ display:flex; flex-direction:column; min-height:100vh }
+  #dashboard{ display:flex; gap:1rem }
+  nav{ width:220px }
+  nav button{ display:block }
 }

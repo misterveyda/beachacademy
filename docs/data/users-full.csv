@@ -1,0 +1,51 @@
+id,name,email,password,role,class,parentId
+1,Admin One,admin1@beach.edu,admin123,Admin,,
+2,Admin Two,admin2@beach.edu,admin123,Admin,,
+3,Admin Three,admin3@beach.edu,admin123,Admin,,
+4,Alice Brooks,alice.brooks@beach.edu,teach123,Teacher,,
+5,Brian Cole,brian.cole@beach.edu,teach123,Teacher,,
+6,Carmen Diaz,carmen.diaz@beach.edu,teach123,Teacher,,
+7,David Evans,david.evans@beach.edu,teach123,Teacher,,
+8,Emma Ford,emma.ford@beach.edu,teach123,Teacher,,
+9,Frank Green,frank.green@beach.edu,teach123,Teacher,,
+10,Grace Hill,grace.hill@beach.edu,teach123,Teacher,,
+11,Hector Ibarra,hector.ibarra@beach.edu,teach123,Teacher,,
+12,Ivy Jones,ivy.jones@beach.edu,teach123,Teacher,,
+13,Jack King,jack.king@beach.edu,teach123,Teacher,,
+14,Karen Lee,karen.lee@beach.edu,teach123,Teacher,,
+15,Liam Moore,liam.moore@beach.edu,teach123,Teacher,,
+16,Parent A,parent1@beach.edu,parent123,Parent,,
+17,Parent B,parent2@beach.edu,parent123,Parent,,
+18,Parent C,parent3@beach.edu,parent123,Parent,,
+19,Parent D,parent4@beach.edu,parent123,Parent,,
+20,Parent E,parent5@beach.edu,parent123,Parent,,
+21,Parent F,parent6@beach.edu,parent123,Parent,,
+22,Parent G,parent7@beach.edu,parent123,Parent,,
+23,Parent H,parent8@beach.edu,parent123,Parent,,
+24,Parent I,parent9@beach.edu,parent123,Parent,,
+25,Parent J,parent10@beach.edu,parent123,Parent,,
+26,Sam Alvarez,sam.alvarez@beach.edu,stud123,Student,Grade 6,16
+27,Nora Bates,nora.bates@beach.edu,stud123,Student,Grade 5,17
+28,Owen Carter,owen.carter@beach.edu,stud123,Student,Grade 7,18
+29,Paula Diaz,paula.diaz@beach.edu,stud123,Student,Grade 8,19
+30,Quinn Edwards,quinn.edwards@beach.edu,stud123,Student,Grade 9,20
+31,Rita Flores,rita.flores@beach.edu,stud123,Student,Grade 4,21
+32,Steve Gordon,steve.gordon@beach.edu,stud123,Student,Grade 6,22
+33,Tina Harris,tina.harris@beach.edu,stud123,Student,Grade 10,23
+34,Uma Iqbal,uma.iqbal@beach.edu,stud123,Student,Grade 11,24
+35,Vikram Jain,vikram.jain@beach.edu,stud123,Student,Grade 12,25
+36,Wendy Kim,wendy.kim@beach.edu,stud123,Student,Grade 3,16
+37,Xavier Lee,xavier.lee@beach.edu,stud123,Student,Grade 2,17
+38,Yara Malik,yara.malik@beach.edu,stud123,Student,Grade 1,18
+39,Zane Nolan,zane.nolan@beach.edu,stud123,Student,Grade 5,19
+40,Abby Ortiz,abby.ortiz@beach.edu,stud123,Student,Grade 7,20
+41,Ben Park,ben.park@beach.edu,stud123,Student,Grade 8,21
+42,Clara Quinn,clara.quinn@beach.edu,stud123,Student,Grade 9,22
+43,Derek Ross,derek.ross@beach.edu,stud123,Student,Grade 10,23
+44,Elena Stone,elena.stone@beach.edu,stud123,Student,Grade 11,24
+45,Felix Turner,felix.turner@beach.edu,stud123,Student,Grade 12,25
+46,Gina Vance,gina.vance@beach.edu,stud123,Student,Grade 4,16
+47,Hugo West,hugo.west@beach.edu,stud123,Student,Grade 3,17
+48,Iris Xu,iris.xu@beach.edu,stud123,Student,Grade 2,18
+49,Jade Young,jade.young@beach.edu,stud123,Student,Grade 6,19
+50,Kyle Zimmerman,kyle.zimmerman@beach.edu,stud123,Student,Grade 5,20

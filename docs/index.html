@@ -10,15 +10,31 @@
 
 <header>
 <h1>🏖️ Beach Academy</h1>
-<div id="user-info"></div>
+<div id="user-area">
+	<span id="user-info"></span>
+	<button id="logout-btn" class="hidden" onclick="logout()">Logout</button>
+</div>
 </header>
 
 
 <section id="auth">
-<h2>Login</h2>
-<input id="email" placeholder="Email" />
-<input id="password" type="password" placeholder="Password" />
-<button onclick="login()">Login</button>
+	<div class="auth-card">
+		<h2 id="auth-title">Login</h2>
+		<div class="form-row"><input id="name" placeholder="Full name (signup only)" class="hidden" /></div>
+		<div class="form-row"><input id="email" placeholder="Email" /></div>
+		<div class="form-row"><input id="password" type="password" placeholder="Password" /></div>
+		<div class="form-row">
+			<select id="role" class="hidden">
+				<option value="Student">Student</option>
+				<option value="Teacher">Teacher</option>
+				<option value="Parent">Parent</option>
+			</select>
+		</div>
+		<div class="form-actions">
+			<button id="auth-submit" onclick="login()">Login</button>
+			<button id="toggle-auth" onclick="toggleAuthMode()">Switch to Signup</button>
+		</div>
+	</div>
 </section>
 
 
