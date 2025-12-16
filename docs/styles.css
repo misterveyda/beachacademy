@@ -459,3 +459,23 @@ tbody tr:hover {
 /* small helpers */
 .muted { color:#777; font-size:0.9rem }
 
+/* Notifications */
+.notification {
+  background: #fff;
+  border-left: 4px solid #0077b6;
+  padding: 1rem;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  animation: slideIn 0.3s ease-out;
+}
+
+.notification-success { border-left-color: #66bb6a; }
+.notification-error { border-left-color: #ff6b6b; }
+.notification-info { border-left-color: #0077b6; }
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+

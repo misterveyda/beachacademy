@@ -160,5 +160,23 @@
 </div>
 
 <script src="app.js"></script>
+
+<!-- Grading modal (teacher view) -->
+<div id="grading-modal" class="modal hidden">
+  <div class="modal-card">
+    <h3 id="grading-modal-title">Grade Submission</h3>
+    <div class="modal-body" id="grading-modal-body">
+      <!-- dynamic content -->
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeGradingModal()">Close</button>
+      <button class="btn-primary" onclick="saveGrade()">Save Grade</button>
+    </div>
+  </div>
+</div>
+
+<!-- Notifications -->
+<div id="notification-container" style="position: fixed; top: 70px; right: 20px; z-index: 300; max-width: 400px;"></div>
+
 </body>
 </html>

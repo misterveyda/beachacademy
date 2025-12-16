@@ -597,7 +597,7 @@ async function saveAssignment(){
   if(!title || !cls) return alert('Title and class required');
   const assignments = loadAssignments();
   const nextId = assignments.length? Math.max(...assignments.map(a=>a.id))+1 : 1;
-  const assignment = { id: nextId, title, desc, class: cls, due, teacherId: currentUser.id, created: new Date().toISOString(), attachment: null, submissions: {} };
+  const assignment = { id: nextId, title, desc, class: cls, due, teacherId: currentUser.id, created: new Date().toISOString(), attachment: null, submissions: {}, grades: {} };
   if (fileInput.files && fileInput.files[0]){
     const f = fileInput.files[0];
     const reader = new FileReader();
@@ -606,6 +606,7 @@ async function saveAssignment(){
       assignments.push(assignment);
       saveAssignments(assignments);
       closeAssignmentModal();
+      showNotification(`📢 Assignment "${title}" posted to ${cls}`, 'success');
       alert('Assignment posted');
       renderNav();
     };
@@ -614,6 +615,7 @@ async function saveAssignment(){
     assignments.push(assignment);
     saveAssignments(assignments);
     closeAssignmentModal();
+    showNotification(`📢 Assignment "${title}" posted to ${cls}`, 'success');
     alert('Assignment posted');
     renderNav();
   }
@@ -627,12 +629,14 @@ async function renderAssignmentsView(content) {
   const list = assignments.filter(a => a.class === myClass || (currentUser.role==='Teacher' && a.teacherId===currentUser.id) );
   let html = '<div class="card"><h2>Assignments</h2>';
   if (currentUser.role === 'Teacher') html += '<div style="margin-top:8px;"><button class="btn-primary" onclick="openAssignmentModal()">+ New Assignment</button></div>';
+  if (currentUser.role === 'Teacher') html += '<div style="margin-top:8px;"><button class="btn-primary" style="background:#666;" onclick="exportAssignmentsCSV()">📥 Export CSV</button> <button class="btn-primary" style="background:#666;" onclick="importAssignmentsCSV()">📤 Import CSV</button></div>';
   html += '<div class="table-container"><table><thead><tr><th>Title</th><th>Class</th><th>Due</th><th>By</th><th>Attachment</th><th>Action</th></tr></thead><tbody>';
   list.forEach(a=>{
     const teacher = users.find(u=>u.id===a.teacherId);
     html += `<tr><td>${a.title}</td><td>${a.class}</td><td>${a.due||''}</td><td>${teacher?teacher.name:''}</td><td>${a.attachment? a.attachment.name : ''}</td><td>`;
     if (currentUser.role==='Teacher' && a.teacherId===currentUser.id) {
       html += `<button class="btn-small" onclick="viewAssignment(${a.id})">View</button>`;
+      html += `<button class="btn-small" onclick="openGradingModal(${a.id})">Grade</button>`;
     } else if (currentUser.role==='Student'){
       html += `<button class="btn-small" onclick="openSubmissionModal(${a.id})">Submit</button>`;
     }
@@ -703,7 +707,7 @@ async function loadView(view) {
       let html = `<div class="card"><h2>Timetables</h2><div class="muted">Select a class to view or edit timetable</div>`;
       html += '<div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap">';
       if (classes.length===0) html += '<div class="muted">No classes assigned</div>';
-      classes.forEach(c => { html += `<button class="btn-small" onclick="openTimetableModal('${c}')">${c}</button>`; });
+      classes.forEach(c => { html += `<button class="btn-small" onclick="openTimetableModal('${c}')">${c}</button> <button class="btn-small" style="background:#666;" onclick="exportTimetableCSV('${c}')">📥</button> <button class="btn-small" style="background:#666;" onclick="importTimetableCSV('${c}')">📤</button>`; });
       html += '</div></div>';
       content.innerHTML = html;
       return;
@@ -753,6 +757,189 @@ function renderNav() {
   if (nav.children.length > 0) {
     nav.children[0].click();
   }
+}
+
+// Grading: Teacher view of submissions
+let _gradingAssignmentId = null;
+let _gradingStudentId = null;
+
+async function openGradingModal(assignmentId) {
+  const assignments = loadAssignments();
+  const a = assignments.find(x => x.id === assignmentId);
+  if (!a) return alert('Assignment not found');
+  
+  const body = document.getElementById('grading-modal-body');
+  const users = await loadUsers();
+  const submissions = Object.entries(a.submissions || {});
+  
+  let html = `<h4>${a.title} — ${a.class}</h4>`;
+  html += '<div style="margin-top:1rem;"><strong>Submissions</strong></div>';
+  html += '<table style="width:100%;font-size:0.85rem;"><thead><tr><th>Student</th><th>File</th><th>Submitted</th><th>Grade</th></tr></thead><tbody>';
+  
+  submissions.forEach(([stId, sub]) => {
+    const student = users.find(u => u.id === parseInt(stId));
+    const grade = (a.grades || {})[stId] || '';
+    html += `<tr>
+      <td>${student ? student.name : 'Unknown'}</td>
+      <td><a href="${sub.data}" download="${sub.name}" style="color:#0077b6;text-decoration:underline;">download</a></td>
+      <td><span class="muted">${new Date(sub.at).toLocaleDateString()}</span></td>
+      <td><button class="btn-small" onclick="editGrade(${assignmentId}, ${stId}, '${grade}')">Set</button></td>
+    </tr>`;
+  });
+  
+  html += '</tbody></table>';
+  body.innerHTML = html;
+  
+  document.getElementById('modal-overlay').classList.remove('hidden');
+  document.getElementById('grading-modal').classList.remove('hidden');
+}
+
+function editGrade(assignmentId, studentId, currentGrade) {
+  const grade = prompt('Enter grade (A, B, C, etc. or score):', currentGrade);
+  if (grade === null) return;
+  _gradingAssignmentId = assignmentId;
+  _gradingStudentId = studentId;
+  const body = document.getElementById('grading-modal-body');
+  body.innerHTML = `<p>Grade <input id="grade-input" value="${grade}" /></p>`;
+}
+
+function closeGradingModal() {
+  document.getElementById('modal-overlay').classList.add('hidden');
+  document.getElementById('grading-modal').classList.add('hidden');
+}
+
+function saveGrade() {
+  const grade = document.getElementById('grade-input')?.value.trim();
+  if (!grade) return alert('Enter a grade');
+  const assignments = loadAssignments();
+  const a = assignments.find(x => x.id === _gradingAssignmentId);
+  if (!a) return alert('Assignment not found');
+  a.grades = a.grades || {};
+  a.grades[_gradingStudentId] = grade;
+  saveAssignments(assignments);
+  closeGradingModal();
+  alert('Grade saved');
+}
+
+// Notification system
+function showNotification(msg, type = 'info') {
+  const container = document.getElementById('notification-container');
+  const div = document.createElement('div');
+  div.className = `notification notification-${type}`;
+  div.style.cssText = 'background:#fff;border-left:4px solid #0077b6;padding:1rem;margin-bottom:8px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.1);';
+  if (type === 'success') div.style.borderLeftColor = '#66bb6a';
+  if (type === 'error') div.style.borderLeftColor = '#ff6b6b';
+  div.innerText = msg;
+  container.appendChild(div);
+  setTimeout(() => div.remove(), 4000);
+}
+
+// CSV export functions
+function exportTimetableCSV(className) {
+  const timetables = loadTimetables();
+  const table = timetables[className] || {};
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+  let csv = 'Day,Period1,Period2,Period3,Period4\n';
+  days.forEach(d => {
+    const row = [d];
+    for (let p = 1; p <= 4; p++) {
+      row.push(table[`${d}-${p}`] || '');
+    }
+    csv += row.map(c => `"${c}"`).join(',') + '\n';
+  });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `timetable-${className}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportAssignmentsCSV() {
+  const assignments = loadAssignments();
+  const users = {};
+  (async () => {
+    const u = await loadUsers();
+    u.forEach(x => users[x.id] = x.name);
+  })();
+  
+  let csv = 'ID,Title,Class,Due,By,Submissions\n';
+  assignments.forEach(a => {
+    const subCount = Object.keys(a.submissions || {}).length;
+    csv += `${a.id},"${a.title}","${a.class}","${a.due || ''}","${users[a.teacherId] || ''}",${subCount}\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'assignments.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importAssignmentsCSV() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.csv';
+  input.onchange = async (e) => {
+    const f = e.target.files[0];
+    const text = await f.text();
+    const lines = text.split('\n').slice(1).filter(l => l.trim());
+    const assignments = loadAssignments();
+    const maxId = assignments.length ? Math.max(...assignments.map(a => a.id)) : 0;
+    let imported = 0;
+    
+    lines.forEach((line, idx) => {
+      const parts = line.split(',').map(p => p.replace(/^"|"$/g, ''));
+      if (parts.length >= 3) {
+        assignments.push({
+          id: maxId + idx + 1,
+          title: parts[1],
+          class: parts[2],
+          due: parts[3] || '',
+          teacherId: currentUser.id,
+          created: new Date().toISOString(),
+          attachment: null,
+          submissions: {},
+          grades: {}
+        });
+        imported++;
+      }
+    });
+    
+    saveAssignments(assignments);
+    showNotification(`Imported ${imported} assignments`, 'success');
+  };
+  input.click();
+}
+
+function importTimetableCSV(className) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.csv';
+  input.onchange = async (e) => {
+    const f = e.target.files[0];
+    const text = await f.text();
+    const lines = text.split('\n').slice(1).filter(l => l.trim());
+    const timetables = loadTimetables();
+    const table = {};
+    
+    lines.forEach(line => {
+      const parts = line.split(',').map(p => p.replace(/^"|"$/g, ''));
+      if (parts.length >= 2) {
+        const day = parts[0].trim();
+        for (let p = 1; p <= 4; p++) {
+          if (parts[p]) table[`${day}-${p}`] = parts[p].trim();
+        }
+      }
+    });
+    
+    timetables[className] = table;
+    saveTimetables(timetables);
+    showNotification('Timetable imported', 'success');
+  };
+  input.click();
 }
 
 window.onload = initApp;
