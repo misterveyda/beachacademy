@@ -99,6 +99,65 @@
   </div>
 </div>
 
+<!-- Assign Classes (admin) -->
+<div id="assign-classes-modal" class="modal hidden">
+  <div class="modal-card">
+    <h3>Assign Classes to Teacher</h3>
+    <div class="modal-body" id="assign-classes-body">
+      <!-- dynamic content -->
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeAssignClasses()">Cancel</button>
+      <button class="btn-primary" onclick="saveAssignedClasses()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Assignment modal (teacher create) -->
+<div id="assignment-modal" class="modal hidden">
+  <div class="modal-card">
+    <h3 id="assignment-modal-title">New Assignment</h3>
+    <div class="modal-body">
+      <input id="assignment-title" placeholder="Title" />
+      <textarea id="assignment-desc" placeholder="Description"></textarea>
+      <input id="assignment-class" placeholder="Class (e.g. Grade 6)" />
+      <input id="assignment-due" type="date" />
+      <input id="assignment-file" type="file" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeAssignmentModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveAssignment()">Post</button>
+    </div>
+  </div>
+</div>
+
+<!-- Submission modal (student upload) -->
+<div id="submission-modal" class="modal hidden">
+  <div class="modal-card">
+    <h3 id="submission-modal-title">Submit Assignment</h3>
+    <div class="modal-body" id="submission-modal-body">
+      <!-- dynamic content -->
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeSubmissionModal()">Cancel</button>
+      <button class="btn-primary" onclick="submitAssignment()">Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Timetable modal -->
+<div id="timetable-modal" class="modal hidden">
+  <div class="modal-card">
+    <h3 id="timetable-modal-title">Timetable</h3>
+    <div class="modal-body" id="timetable-modal-body">
+      <!-- dynamic content -->
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeTimetableModal()">Close</button>
+      <button class="btn-primary" onclick="saveTimetable()">Save</button>
+    </div>
+  </div>
+</div>
 
 <script src="app.js"></script>
 </body>

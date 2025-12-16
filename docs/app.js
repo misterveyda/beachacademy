@@ -262,32 +262,55 @@ function renderUserTable(role, users, content, title = null) {
 
   const tbody = document.getElementById(`table-body-${role}`);
   function renderRows(list) {
-    tbody.innerHTML = list.map(u => `
+    tbody.innerHTML = list.map(u => {
+      let actions = '';
+      actions += `<button class="btn-small" onclick="openUserModal('edit','${role}',${u.id})">Edit</button>`;
+      actions += `<button class="btn-small" onclick="openGradeModal(${u.id})">Grades</button>`;
+      actions += `<button class="btn-small" onclick="openAttendanceModal(${u.id})">Attendance</button>`;
+      if (role === 'Teacher' && (currentUser && currentUser.role === 'Admin')) {
+        actions += `<button class="btn-small" onclick="openAssignClasses(${u.id})">Assign Classes</button>`;
+      }
+      actions += `<button class="btn-small danger" onclick="deleteUser(${u.id})">Delete</button>`;
+      return `
       <tr>
         <td>${u.id}</td>
         <td>${u.name}</td>
         <td>${u.email}</td>
         <td><span class="badge badge-${role.toLowerCase()}">${u.role}</span></td>
         <td>${u.class || 'N/A'}</td>
-        <td>
-          <button class="btn-small" onclick="openUserModal('edit','${role}',${u.id})">Edit</button>
-          <button class="btn-small" onclick="openGradeModal(${u.id})">Grades</button>
-          <button class="btn-small" onclick="openAttendanceModal(${u.id})">Attendance</button>
-          <button class="btn-small danger" onclick="deleteUser(${u.id})">Delete</button>
-        </td>
+        <td>${actions}</td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
   }
 
   renderRows(all);
 
   const search = document.getElementById('table-search');
-  search.addEventListener('input', (e) => {
-    const q = e.target.value.toLowerCase().trim();
-    if (!q) return renderRows(all);
-    const filtered = all.filter(u => (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q));
+  let classFilter = '';
+  if (role === 'Student') {
+    getAllClasses().then(classes => {
+      const select = document.createElement('select');
+      select.className = 'search-input';
+      select.id = 'table-class-select';
+      const optAll = document.createElement('option'); optAll.value=''; optAll.text = 'All classes';
+      select.appendChild(optAll);
+      classes.forEach(c => { const o = document.createElement('option'); o.value = c; o.text = c; select.appendChild(o); });
+      const container = document.querySelector('.table-actions');
+      container.insertBefore(select, container.firstChild);
+      select.addEventListener('change', () => { classFilter = select.value; applyFilters(); });
+    });
+  }
+
+  search.addEventListener('input', () => applyFilters());
+
+  function applyFilters() {
+    const q = search.value.toLowerCase().trim();
+    let filtered = all.slice();
+    if (q) filtered = filtered.filter(u => (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q));
+    if (classFilter) filtered = filtered.filter(u => (u.class || '') === classFilter);
     renderRows(filtered);
-  });
+  }
 }
 
 let _editingUserId = null;
@@ -446,5 +469,290 @@ function closeAttendanceModal() {
   document.getElementById('attendance-modal').classList.add('hidden');
 }
 
+// Helper: get existing classes from students
+async function getAllClasses() {
+  const users = await loadUsers();
+  const set = new Set();
+  users.filter(u => u.role === 'Student').forEach(s => { if (s.class) set.add(s.class); });
+  return Array.from(set).sort();
+}
+
+// Admin: assign classes to teacher
+let _assigningTeacherId = null;
+async function openAssignClasses(teacherId) {
+  _assigningTeacherId = teacherId;
+  const classes = await getAllClasses();
+  const users = await loadUsers();
+  const teacher = users.find(u => u.id === teacherId);
+  const body = document.getElementById('assign-classes-body');
+  let html = '';
+  html += '<div style="margin-bottom:0.5rem"><strong>Available classes</strong></div>';
+  html += '<div style="display:flex;flex-direction:column;gap:6px;">';
+  classes.forEach(c => {
+    const checked = (teacher.assignedClasses || []).includes(c) ? 'checked' : '';
+    html += `<label><input type="checkbox" data-class="${c}" ${checked} /> ${c}</label>`;
+  });
+  html += '</div>';
+  html += '<div style="margin-top:8px"><input id="new-class-name" placeholder="Create new class" /></div>';
+  body.innerHTML = html;
+  document.getElementById('modal-overlay').classList.remove('hidden');
+  document.getElementById('assign-classes-modal').classList.remove('hidden');
+}
+
+function closeAssignClasses() {
+  document.getElementById('modal-overlay').classList.add('hidden');
+  document.getElementById('assign-classes-modal').classList.add('hidden');
+}
+
+async function saveAssignedClasses() {
+  const users = await loadUsers();
+  const teacher = users.find(u => u.id === _assigningTeacherId);
+  if (!teacher) return alert('Teacher not found');
+  const checked = Array.from(document.querySelectorAll('#assign-classes-body input[type=checkbox]')).filter(i=>i.checked).map(i=>i.getAttribute('data-class'));
+  const newClass = document.getElementById('new-class-name').value.trim();
+  if (newClass) checked.push(newClass);
+  teacher.assignedClasses = checked;
+  saveUsers(users);
+  closeAssignClasses();
+  alert('Assigned classes saved');
+  renderNav();
+}
+
+// Timetable storage helpers
+function loadTimetables() {
+  const raw = localStorage.getItem('timetables');
+  return raw ? JSON.parse(raw) : {};
+}
+function saveTimetables(t) { localStorage.setItem('timetables', JSON.stringify(t, null,2)); }
+
+// Open timetable modal to view/edit for a class
+async function openTimetableModal(className) {
+  const timetables = loadTimetables();
+  const subjectsRes = await fetch('data/subjects-full.json').then(r=>r.json()).catch(()=>[]);
+  const subs = subjectsRes.map(s=>s.code);
+  const table = timetables[className] || {};
+  const body = document.getElementById('timetable-modal-body');
+  const days = ['Mon','Tue','Wed','Thu','Fri'];
+  let html = `<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;"><strong>${className}</strong></div>`;
+  html += '<table class="timetable"><thead><tr><th>Day</th><th>Period 1</th><th>Period 2</th><th>Period 3</th><th>Period 4</th></tr></thead><tbody>';
+  days.forEach(d=>{
+    html += `<tr><td>${d}</td>`;
+    for(let p=1;p<=4;p++){
+      const key = `${d}-${p}`;
+      const val = table[key] || '';
+      html += `<td><select data-key="${key}">`;
+      html += `<option value="">--</option>`;
+      subs.forEach(code=>{ const sel = val===code? 'selected':''; html+=`<option value="${code}" ${sel}>${code}</option>`; });
+      html += `</select></td>`;
+    }
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  body.innerHTML = html;
+  document.getElementById('modal-overlay').classList.remove('hidden');
+  document.getElementById('timetable-modal').classList.remove('hidden');
+  // store editing class on modal element
+  document.getElementById('timetable-modal').setAttribute('data-class', className);
+}
+
+function closeTimetableModal() {
+  document.getElementById('modal-overlay').classList.add('hidden');
+  document.getElementById('timetable-modal').classList.add('hidden');
+}
+
+function saveTimetable() {
+  const className = document.getElementById('timetable-modal').getAttribute('data-class');
+  const selects = Array.from(document.querySelectorAll('#timetable-modal-body select'));
+  const table = {};
+  selects.forEach(s=>{ const k=s.getAttribute('data-key'); if(s.value) table[k]=s.value; });
+  const timetables = loadTimetables();
+  timetables[className]=table;
+  saveTimetables(timetables);
+  closeTimetableModal();
+  alert('Timetable saved');
+}
+
+// Assignments: stored in localStorage
+function loadAssignments() { const raw = localStorage.getItem('assignments'); return raw?JSON.parse(raw):[]; }
+function saveAssignments(a){ localStorage.setItem('assignments', JSON.stringify(a, null,2)); }
+
+// Teacher: open assignment modal
+function openAssignmentModal() {
+  document.getElementById('assignment-title').value='';
+  document.getElementById('assignment-desc').value='';
+  document.getElementById('assignment-class').value='';
+  document.getElementById('assignment-due').value='';
+  document.getElementById('assignment-file').value='';
+  document.getElementById('modal-overlay').classList.remove('hidden');
+  document.getElementById('assignment-modal').classList.remove('hidden');
+}
+function closeAssignmentModal(){ document.getElementById('modal-overlay').classList.add('hidden'); document.getElementById('assignment-modal').classList.add('hidden'); }
+
+async function saveAssignment(){
+  const title = document.getElementById('assignment-title').value.trim();
+  const desc = document.getElementById('assignment-desc').value.trim();
+  const cls = document.getElementById('assignment-class').value.trim();
+  const due = document.getElementById('assignment-due').value;
+  const fileInput = document.getElementById('assignment-file');
+  if(!title || !cls) return alert('Title and class required');
+  const assignments = loadAssignments();
+  const nextId = assignments.length? Math.max(...assignments.map(a=>a.id))+1 : 1;
+  const assignment = { id: nextId, title, desc, class: cls, due, teacherId: currentUser.id, created: new Date().toISOString(), attachment: null, submissions: {} };
+  if (fileInput.files && fileInput.files[0]){
+    const f = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e){
+      assignment.attachment = { name: f.name, data: e.target.result };
+      assignments.push(assignment);
+      saveAssignments(assignments);
+      closeAssignmentModal();
+      alert('Assignment posted');
+      renderNav();
+    };
+    reader.readAsDataURL(f);
+  } else {
+    assignments.push(assignment);
+    saveAssignments(assignments);
+    closeAssignmentModal();
+    alert('Assignment posted');
+    renderNav();
+  }
+}
+
+// Student: view assignments for their class
+async function renderAssignmentsView(content) {
+  const assignments = loadAssignments();
+  const users = await loadUsers();
+  const myClass = currentUser.class;
+  const list = assignments.filter(a => a.class === myClass || (currentUser.role==='Teacher' && a.teacherId===currentUser.id) );
+  let html = '<div class="card"><h2>Assignments</h2>';
+  if (currentUser.role === 'Teacher') html += '<div style="margin-top:8px;"><button class="btn-primary" onclick="openAssignmentModal()">+ New Assignment</button></div>';
+  html += '<div class="table-container"><table><thead><tr><th>Title</th><th>Class</th><th>Due</th><th>By</th><th>Attachment</th><th>Action</th></tr></thead><tbody>';
+  list.forEach(a=>{
+    const teacher = users.find(u=>u.id===a.teacherId);
+    html += `<tr><td>${a.title}</td><td>${a.class}</td><td>${a.due||''}</td><td>${teacher?teacher.name:''}</td><td>${a.attachment? a.attachment.name : ''}</td><td>`;
+    if (currentUser.role==='Teacher' && a.teacherId===currentUser.id) {
+      html += `<button class="btn-small" onclick="viewAssignment(${a.id})">View</button>`;
+    } else if (currentUser.role==='Student'){
+      html += `<button class="btn-small" onclick="openSubmissionModal(${a.id})">Submit</button>`;
+    }
+    html += `</td></tr>`;
+  });
+  html += '</tbody></table></div></div>';
+  content.innerHTML = html;
+}
+
+function viewAssignment(id){
+  const assignments = loadAssignments();
+  const a = assignments.find(x=>x.id===id);
+  if(!a) return alert('Not found');
+  let html = `<h3>${a.title}</h3><p>${a.desc||''}</p>`;
+  if(a.attachment) html += `<p><a href="${a.attachment.data}" download="${a.attachment.name}">Download attachment</a></p>`;
+  html += `<p class="muted">Due: ${a.due||'n/a'}</p>`;
+  const body = document.getElementById('submission-modal-body');
+  body.innerHTML = html;
+  document.getElementById('modal-overlay').classList.remove('hidden');
+  document.getElementById('submission-modal').classList.remove('hidden');
+}
+
+function openSubmissionModal(assignmentId){
+  const assignments = loadAssignments();
+  const a = assignments.find(x=>x.id===assignmentId);
+  if(!a) return alert('Not found');
+  const body = document.getElementById('submission-modal-body');
+  body.innerHTML = `<p><strong>${a.title}</strong></p><input type="file" id="submission-file" />`;
+  document.getElementById('submission-modal').setAttribute('data-assignment', assignmentId);
+  document.getElementById('modal-overlay').classList.remove('hidden');
+  document.getElementById('submission-modal').classList.remove('hidden');
+}
+
+function closeSubmissionModal(){ document.getElementById('modal-overlay').classList.add('hidden'); document.getElementById('submission-modal').classList.add('hidden'); }
+
+function submitAssignment(){
+  const assignmentId = parseInt(document.getElementById('submission-modal').getAttribute('data-assignment'));
+  const fileInput = document.getElementById('submission-file');
+  if(!fileInput || !fileInput.files[0]) return alert('Select file');
+  const f = fileInput.files[0];
+  const reader = new FileReader();
+  reader.onload = async function(e){
+    const assignments = loadAssignments();
+    const a = assignments.find(x=>x.id===assignmentId);
+    a.submissions = a.submissions || {};
+    a.submissions[currentUser.id] = { name: f.name, data: e.target.result, at: new Date().toISOString() };
+    saveAssignments(assignments);
+    closeSubmissionModal();
+    alert('Submitted');
+  };
+  reader.readAsDataURL(f);
+}
+
+// Integrate new views into loadView: add Timetable and Assignments for roles
+const _originalLoadView = loadView;
+async function loadView(view) {
+  const content = document.getElementById('content');
+  const users = await loadUsers();
+
+  if (view === 'Assignments') {
+    return renderAssignmentsView(content);
+  }
+
+  if (view === 'Timetable') {
+    // For teacher: show classes assigned and open timetable for chosen class
+    if (currentUser.role === 'Teacher') {
+      const classes = currentUser.assignedClasses || [];
+      let html = `<div class="card"><h2>Timetables</h2><div class="muted">Select a class to view or edit timetable</div>`;
+      html += '<div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap">';
+      if (classes.length===0) html += '<div class="muted">No classes assigned</div>';
+      classes.forEach(c => { html += `<button class="btn-small" onclick="openTimetableModal('${c}')">${c}</button>`; });
+      html += '</div></div>';
+      content.innerHTML = html;
+      return;
+    }
+    // For student: show their class timetable
+    if (currentUser.role === 'Student') {
+      const cls = currentUser.class;
+      if (!cls) return content.innerHTML = `<div class="card"><h2>Timetable</h2><p>No class assigned</p></div>`;
+      await openTimetableModal(cls);
+      return;
+    }
+  }
+
+  // otherwise call original behavior based on role
+  if (currentUser.role === 'Admin') return loadAdminView(view, users, content);
+  if (currentUser.role === 'Teacher') return loadTeacherView(view, users, content);
+  if (currentUser.role === 'Parent') return loadParentView(view, users, content);
+  if (currentUser.role === 'Student') return loadStudentView(view, users, content);
+}
+
+// Update nav links to include Timetable and Assignments
+function renderNav() {
+  const nav = document.getElementById('nav');
+  nav.innerHTML = '';
+
+  const links = {
+    Admin: ['Dashboard','Students','Teachers','Fees','Analytics'],
+    Teacher: ['Dashboard','Timetable','Assignments','Classes','Attendance','Grades','Messages'],
+    Parent: ['My Child','Attendance','Fees','Messages','Assignments'],
+    Student: ['Profile','Grades','Timetable','Assignments']
+  };
+
+  const roleLinks = links[currentUser?.role] || ['Home'];
+  roleLinks.forEach((item, idx) => {
+    const btn = document.createElement('button');
+    btn.innerText = item;
+    if (idx === 0) btn.classList.add('active');
+    btn.onclick = () => {
+      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      loadView(item);
+    };
+    nav.appendChild(btn);
+  });
+  
+  // Load first view on init
+  if (nav.children.length > 0) {
+    nav.children[0].click();
+  }
+}
 
 window.onload = initApp;
