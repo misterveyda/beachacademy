@@ -110,17 +110,187 @@ function renderNav() {
   };
 
   const roleLinks = links[currentUser?.role] || ['Home'];
-  roleLinks.forEach(item => {
+  roleLinks.forEach((item, idx) => {
     const btn = document.createElement('button');
     btn.innerText = item;
-    btn.onclick = () => loadView(item);
+    if (idx === 0) btn.classList.add('active');
+    btn.onclick = () => {
+      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      loadView(item);
+    };
     nav.appendChild(btn);
   });
+  
+  // Load first view on init
+  if (nav.children.length > 0) {
+    nav.children[0].click();
+  }
 }
 
-function loadView(view) {
+async function loadView(view) {
   const content = document.getElementById('content');
-  content.innerHTML = `<div class='card'><h2>${view}</h2><p>Interactive module loaded.</p></div>`;
+  const users = await loadUsers();
+
+  if (currentUser.role === 'Admin') {
+    return loadAdminView(view, users, content);
+  } else if (currentUser.role === 'Teacher') {
+    return loadTeacherView(view, users, content);
+  } else if (currentUser.role === 'Parent') {
+    return loadParentView(view, users, content);
+  } else if (currentUser.role === 'Student') {
+    return loadStudentView(view, users, content);
+  }
 }
+
+function loadAdminView(view, users, content) {
+  if (view === 'Dashboard') {
+    const stats = {
+      totalUsers: users.length,
+      admins: users.filter(u => u.role === 'Admin').length,
+      teachers: users.filter(u => u.role === 'Teacher').length,
+      students: users.filter(u => u.role === 'Student').length,
+      parents: users.filter(u => u.role === 'Parent').length
+    };
+
+    content.innerHTML = `
+      <h2>Admin Dashboard</h2>
+      <div class="stats-grid">
+        <div class="stat-card admin">
+          <h4>Total Users</h4>
+          <div class="value">${stats.totalUsers}</div>
+        </div>
+        <div class="stat-card admin">
+          <h4>Admins</h4>
+          <div class="value">${stats.admins}</div>
+        </div>
+        <div class="stat-card teacher">
+          <h4>Teachers</h4>
+          <div class="value">${stats.teachers}</div>
+        </div>
+        <div class="stat-card student">
+          <h4>Students</h4>
+          <div class="value">${stats.students}</div>
+        </div>
+        <div class="stat-card parent">
+          <h4>Parents</h4>
+          <div class="value">${stats.parents}</div>
+        </div>
+      </div>
+    `;
+  } else if (view === 'Students') {
+    renderUserTable('Student', users, content);
+  } else if (view === 'Teachers') {
+    renderUserTable('Teacher', users, content);
+  } else if (view === 'Fees') {
+    content.innerHTML = `<div class="card"><h2>Fees Management</h2><p>Fee tracking and payment records.</p></div>`;
+  } else if (view === 'Analytics') {
+    content.innerHTML = `<div class="card"><h2>Analytics</h2><p>System analytics and reports.</p></div>`;
+  }
+}
+
+function loadTeacherView(view, users, content) {
+  if (view === 'Classes') {
+    content.innerHTML = `<div class="card"><h2>My Classes</h2><p>View and manage your classes.</p></div>`;
+  } else if (view === 'Attendance') {
+    content.innerHTML = `<div class="card"><h2>Attendance</h2><p>Mark and track attendance.</p></div>`;
+  } else if (view === 'Grades') {
+    content.innerHTML = `<div class="card"><h2>Grades</h2><p>Enter and manage student grades.</p></div>`;
+  } else if (view === 'Messages') {
+    content.innerHTML = `<div class="card"><h2>Messages</h2><p>Communicate with parents and students.</p></div>`;
+  }
+}
+
+function loadParentView(view, users, content) {
+  if (view === 'My Child') {
+    const students = users.filter(u => u.parentId === currentUser.id);
+    if (students.length === 0) {
+      content.innerHTML = `<div class="card"><h2>My Child</h2><p>No linked students found.</p></div>`;
+      return;
+    }
+    renderUserTable('Student', students, content, 'My Children');
+  } else {
+    content.innerHTML = `<div class="card"><h2>${view}</h2><p>Parent view for ${view}.</p></div>`;
+  }
+}
+
+function loadStudentView(view, users, content) {
+  if (view === 'Profile') {
+    content.innerHTML = `
+      <div class="card">
+        <h2>My Profile</h2>
+        <p><strong>Name:</strong> ${currentUser.name}</p>
+        <p><strong>Email:</strong> ${currentUser.email}</p>
+        <p><strong>Role:</strong> ${currentUser.role}</p>
+        <p><strong>Class:</strong> ${currentUser.class || 'N/A'}</p>
+      </div>
+    `;
+  } else {
+    content.innerHTML = `<div class="card"><h2>${view}</h2><p>Student view for ${view}.</p></div>`;
+  }
+}
+
+function renderUserTable(role, users, content, title = null) {
+  const filtered = users.filter(u => u.role === role);
+  const tableTitle = title || `${role}s (${filtered.length})`;
+
+  let rows = filtered.map(u => `
+    <tr>
+      <td>${u.id}</td>
+      <td>${u.name}</td>
+      <td>${u.email}</td>
+      <td><span class="badge badge-${role.toLowerCase()}">${u.role}</span></td>
+      <td>${u.class || 'N/A'}</td>
+      <td>
+        <button class="btn-small" onclick="editUser(${u.id})">Edit</button>
+        <button class="btn-small danger" onclick="deleteUser(${u.id})">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+
+  content.innerHTML = `
+    <div class="table-container">
+      <div class="table-header">
+        <h3>${tableTitle}</h3>
+        <div class="table-actions">
+          <button class="btn-primary" style="width: auto; padding: 0.5rem 1rem;" onclick="addUser('${role}')">+ Add ${role}</button>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Class</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function editUser(id) {
+  alert(`Edit user ${id} (feature coming soon)`);
+}
+
+async function deleteUser(id) {
+  if (!confirm('Are you sure?')) return;
+  const users = await loadUsers();
+  const filtered = users.filter(u => u.id !== id);
+  saveUsers(filtered);
+  alert('User deleted');
+  renderNav();
+}
+
+async function addUser(role) {
+  alert(`Add new ${role} (feature coming soon)`);
+}
+
 
 window.onload = initApp;
