@@ -1,0 +1,4 @@
+id,name,email,password,role,class,parentId
+1,Admin One,admin@beach.edu,admin123,Admin,,
+2,Tom Teacher,teacher1@beach.edu,teach123,Teacher,,
+3,Sarah Student,student1@beach.edu,stud123,Student,Grade 6,50

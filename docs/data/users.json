@@ -1,0 +1,5 @@
+[
+  {"id":1,"name":"Admin One","email":"admin@beach.edu","password":"admin123","role":"Admin"},
+  {"id":2,"name":"Tom Teacher","email":"teacher1@beach.edu","password":"teach123","role":"Teacher","subjects":["Math","Physics"]},
+  {"id":3,"name":"Sarah Student","email":"student1@beach.edu","password":"stud123","role":"Student","class":"Grade 6","parentId":50}
+]
