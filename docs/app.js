@@ -231,29 +231,16 @@ function loadStudentView(view, users, content) {
 }
 
 function renderUserTable(role, users, content, title = null) {
-  const filtered = users.filter(u => u.role === role);
-  const tableTitle = title || `${role}s (${filtered.length})`;
-
-  let rows = filtered.map(u => `
-    <tr>
-      <td>${u.id}</td>
-      <td>${u.name}</td>
-      <td>${u.email}</td>
-      <td><span class="badge badge-${role.toLowerCase()}">${u.role}</span></td>
-      <td>${u.class || 'N/A'}</td>
-      <td>
-        <button class="btn-small" onclick="editUser(${u.id})">Edit</button>
-        <button class="btn-small danger" onclick="deleteUser(${u.id})">Delete</button>
-      </td>
-    </tr>
-  `).join('');
+  const all = users.filter(u => u.role === role);
+  const tableTitle = title || `${role}s (${all.length})`;
 
   content.innerHTML = `
     <div class="table-container">
       <div class="table-header">
         <h3>${tableTitle}</h3>
         <div class="table-actions">
-          <button class="btn-primary" style="width: auto; padding: 0.5rem 1rem;" onclick="addUser('${role}')">+ Add ${role}</button>
+          <input id="table-search" class="search-input" placeholder="Search by name or email" />
+          <button class="btn-primary" style="width: auto; padding: 0.5rem 1rem;" onclick="openUserModal('add','${role}')">+ Add ${role}</button>
         </div>
       </div>
       <table>
@@ -267,29 +254,196 @@ function renderUserTable(role, users, content, title = null) {
             <th>Actions</th>
           </tr>
         </thead>
-        <tbody>
-          ${rows}
+        <tbody id="table-body-${role}">
         </tbody>
       </table>
     </div>
   `;
+
+  const tbody = document.getElementById(`table-body-${role}`);
+  function renderRows(list) {
+    tbody.innerHTML = list.map(u => `
+      <tr>
+        <td>${u.id}</td>
+        <td>${u.name}</td>
+        <td>${u.email}</td>
+        <td><span class="badge badge-${role.toLowerCase()}">${u.role}</span></td>
+        <td>${u.class || 'N/A'}</td>
+        <td>
+          <button class="btn-small" onclick="openUserModal('edit','${role}',${u.id})">Edit</button>
+          <button class="btn-small" onclick="openGradeModal(${u.id})">Grades</button>
+          <button class="btn-small" onclick="openAttendanceModal(${u.id})">Attendance</button>
+          <button class="btn-small danger" onclick="deleteUser(${u.id})">Delete</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  renderRows(all);
+
+  const search = document.getElementById('table-search');
+  search.addEventListener('input', (e) => {
+    const q = e.target.value.toLowerCase().trim();
+    if (!q) return renderRows(all);
+    const filtered = all.filter(u => (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q));
+    renderRows(filtered);
+  });
 }
 
-async function editUser(id) {
-  alert(`Edit user ${id} (feature coming soon)`);
+let _editingUserId = null;
+
+async function openUserModal(mode, role, id) {
+  const overlay = document.getElementById('modal-overlay');
+  const modal = document.getElementById('user-modal');
+  document.getElementById('user-modal-title').innerText = mode === 'add' ? `Add ${role}` : 'Edit User';
+  document.getElementById('modal-role').value = role || 'Student';
+  document.getElementById('modal-password').value = '';
+  document.getElementById('modal-class').value = '';
+  _editingUserId = null;
+
+  if (mode === 'edit') {
+    const users = await loadUsers();
+    const user = users.find(u => u.id === id);
+    if (!user) return alert('User not found');
+    document.getElementById('modal-name').value = user.name || '';
+    document.getElementById('modal-email').value = user.email || '';
+    document.getElementById('modal-role').value = user.role || role;
+    document.getElementById('modal-class').value = user.class || '';
+    _editingUserId = id;
+  } else {
+    document.getElementById('modal-name').value = '';
+    document.getElementById('modal-email').value = '';
+    document.getElementById('modal-role').value = role || 'Student';
+  }
+
+  overlay.classList.remove('hidden');
+  modal.classList.remove('hidden');
 }
 
-async function deleteUser(id) {
-  if (!confirm('Are you sure?')) return;
+function closeUserModal() {
+  document.getElementById('modal-overlay').classList.add('hidden');
+  document.getElementById('user-modal').classList.add('hidden');
+}
+
+async function saveUserFromModal() {
+  const name = document.getElementById('modal-name').value.trim();
+  const email = document.getElementById('modal-email').value.trim();
+  const role = document.getElementById('modal-role').value;
+  const password = document.getElementById('modal-password').value || 'changeme';
+  const cls = document.getElementById('modal-class').value || '';
+  if (!name || !email) return alert('Name and email required');
+
   const users = await loadUsers();
-  const filtered = users.filter(u => u.id !== id);
-  saveUsers(filtered);
-  alert('User deleted');
+  if (_editingUserId) {
+    const idx = users.findIndex(u => u.id === _editingUserId);
+    if (idx === -1) return alert('User not found');
+    users[idx].name = name;
+    users[idx].email = email;
+    users[idx].role = role;
+    users[idx].class = cls || users[idx].class;
+    if (password) users[idx].password = password;
+  } else {
+    const nextId = users.length ? Math.max(...users.map(u => u.id)) + 1 : 1;
+    users.push({ id: nextId, name, email, password, role, class: cls });
+  }
+  saveUsers(users);
+  closeUserModal();
   renderNav();
 }
 
-async function addUser(role) {
-  alert(`Add new ${role} (feature coming soon)`);
+async function deleteUser(id) {
+  if (!confirm('Are you sure you want to delete this user?')) return;
+  const users = await loadUsers();
+  const filtered = users.filter(u => u.id !== id);
+  saveUsers(filtered);
+  // refresh
+  renderNav();
+}
+
+async function openGradeModal(userId) {
+  const users = await loadUsers();
+  const user = users.find(u => u.id === userId);
+  if (!user) return alert('User not found');
+  const body = document.getElementById('grade-modal-body');
+  const grades = user.grades || {};
+  let html = `<p><strong>${user.name}</strong> — ${user.class || 'N/A'}</p>`;
+  html += `<div id="grades-list">`;
+  for (const subj in grades) {
+    html += `<div><label>${subj}: <input data-subj="${subj}" value="${grades[subj]}" /></label></div>`;
+  }
+  html += `</div>`;
+  html += `<div style="margin-top:0.75rem;"><input id="new-grade-subj" placeholder="Subject" /><input id="new-grade-val" placeholder="Grade" /><button class="btn-small" onclick="addGradeField(${userId})">Add</button></div>`;
+  html += `<div style="margin-top:0.75rem;"><button class="btn-primary" onclick="saveGrades(${userId})">Save grades</button></div>`;
+  body.innerHTML = html;
+  document.getElementById('modal-overlay').classList.remove('hidden');
+  document.getElementById('grade-modal').classList.remove('hidden');
+}
+
+function addGradeField(userId) {
+  const subj = document.getElementById('new-grade-subj').value.trim();
+  const val = document.getElementById('new-grade-val').value.trim();
+  if (!subj) return alert('Enter subject');
+  const list = document.getElementById('grades-list');
+  const node = document.createElement('div');
+  node.innerHTML = `<label>${subj}: <input data-subj="${subj}" value="${val}" /></label>`;
+  list.appendChild(node);
+  document.getElementById('new-grade-subj').value = '';
+  document.getElementById('new-grade-val').value = '';
+}
+
+async function saveGrades(userId) {
+  const inputs = Array.from(document.querySelectorAll('#grades-list input'));
+  const grades = {};
+  inputs.forEach(i => { grades[i.getAttribute('data-subj')] = i.value; });
+  const users = await loadUsers();
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx === -1) return alert('User not found');
+  users[idx].grades = grades;
+  saveUsers(users);
+  closeGradeModal();
+  alert('Grades saved');
+}
+
+function closeGradeModal() {
+  document.getElementById('modal-overlay').classList.add('hidden');
+  document.getElementById('grade-modal').classList.add('hidden');
+}
+
+async function openAttendanceModal(userId) {
+  const users = await loadUsers();
+  const user = users.find(u => u.id === userId);
+  if (!user) return alert('User not found');
+  const body = document.getElementById('attendance-modal-body');
+  const attendance = user.attendance || [];
+  let html = `<p><strong>${user.name}</strong> — ${user.class || 'N/A'}</p>`;
+  html += `<div id="attendance-list">`;
+  attendance.slice().reverse().forEach(a => {
+    html += `<div><span class="muted">${a.date}</span> — ${a.status}</div>`;
+  });
+  html += `</div>`;
+  const today = new Date().toISOString().slice(0,10);
+  html += `<div style="margin-top:0.75rem;"><label>Date <input id="att-date" type="date" value="${today}" /></label> <select id="att-status"><option>Present</option><option>Absent</option><option>Late</option></select> <button class="btn-small" onclick="saveAttendance(${userId})">Mark</button></div>`;
+  body.innerHTML = html;
+  document.getElementById('modal-overlay').classList.remove('hidden');
+  document.getElementById('attendance-modal').classList.remove('hidden');
+}
+
+async function saveAttendance(userId) {
+  const date = document.getElementById('att-date').value;
+  const status = document.getElementById('att-status').value;
+  const users = await loadUsers();
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx === -1) return alert('User not found');
+  users[idx].attendance = users[idx].attendance || [];
+  users[idx].attendance.push({ date, status });
+  saveUsers(users);
+  closeAttendanceModal();
+  alert('Attendance saved');
+}
+
+function closeAttendanceModal() {
+  document.getElementById('modal-overlay').classList.add('hidden');
+  document.getElementById('attendance-modal').classList.add('hidden');
 }
 
 

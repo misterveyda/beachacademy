@@ -50,6 +50,56 @@
 </section>
 
 
+<!-- Modals -->
+<div id="modal-overlay" class="hidden"></div>
+
+<div id="user-modal" class="modal hidden" role="dialog">
+  <div class="modal-card">
+    <h3 id="user-modal-title">Add User</h3>
+    <div class="modal-body">
+      <input id="modal-name" placeholder="Full name" />
+      <input id="modal-email" placeholder="Email" />
+      <select id="modal-role">
+        <option value="Student">Student</option>
+        <option value="Teacher">Teacher</option>
+        <option value="Parent">Parent</option>
+        <option value="Admin">Admin</option>
+      </select>
+      <input id="modal-password" placeholder="Password" />
+      <input id="modal-class" placeholder="Class (optional)" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeUserModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveUserFromModal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="grade-modal" class="modal hidden" role="dialog">
+  <div class="modal-card">
+    <h3 id="grade-modal-title">Grades</h3>
+    <div class="modal-body" id="grade-modal-body">
+      <!-- dynamic content -->
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeGradeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="attendance-modal" class="modal hidden" role="dialog">
+  <div class="modal-card">
+    <h3 id="attendance-modal-title">Attendance</h3>
+    <div class="modal-body" id="attendance-modal-body">
+      <!-- dynamic content -->
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeAttendanceModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+
 <script src="app.js"></script>
 </body>
 </html>

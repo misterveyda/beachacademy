@@ -405,3 +405,57 @@ tbody tr:hover {
     width: 100%;
   }
 }
+
+/* Modals */
+.modal {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: transparent;
+  z-index: 200;
+  width: 100%;
+  max-width: 720px;
+  padding: 1rem;
+}
+
+#modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 150;
+}
+
+.modal-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+}
+
+.modal-body input, .modal-body select {
+  width: 100%;
+  padding: 0.6rem;
+  margin: 0.5rem 0;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.modal-actions { display:flex; gap:0.5rem; justify-content:flex-end; margin-top:0.5rem }
+
+/* Search */
+.search-input {
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 0.95rem;
+}
+
+/* Timetable */
+.timetable { width: 100%; border-collapse: collapse; }
+.timetable th, .timetable td { padding: 0.6rem; border: 1px solid #e8eef6; }
+.timetable th { background:#f6fbff }
+
+/* small helpers */
+.muted { color:#777; font-size:0.9rem }
+

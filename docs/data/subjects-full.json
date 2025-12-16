@@ -1,0 +1,12 @@
+[
+  {"code":"MATH","name":"Mathematics"},
+  {"code":"ENG","name":"English"},
+  {"code":"PHY","name":"Physics"},
+  {"code":"CHEM","name":"Chemistry"},
+  {"code":"BIO","name":"Biology"},
+  {"code":"HIST","name":"History"},
+  {"code":"GEO","name":"Geography"},
+  {"code":"CS","name":"Computer Science"},
+  {"code":"ART","name":"Art"},
+  {"code":"MUSIC","name":"Music"}
+]
