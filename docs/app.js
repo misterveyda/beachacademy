@@ -9,7 +9,7 @@ async function loadUsers() {
     res = await fetch('data/users-full.json');
     if (!res.ok) res = await fetch('data/users.json');
   } catch (e) {
-    res = await fetch('data/users.json');
+    res = await fetch('data/users-full.json');
   }
   return res.json();
 }
