@@ -1,125 +1,21 @@
 let currentUser = null;
 let isSignup = false;
 
-// --- Simple IndexedDB helper (no external libs) ---
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open('beachacademy-db', 1);
-    req.onupgradeneeded = (e) => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains('users')) db.createObjectStore('users', { keyPath: 'id' });
-      if (!db.objectStoreNames.contains('assignments')) db.createObjectStore('assignments', { keyPath: 'id' });
-      if (!db.objectStoreNames.contains('timetables')) db.createObjectStore('timetables', { keyPath: 'className' });
-      if (!db.objectStoreNames.contains('files')) db.createObjectStore('files', { keyPath: 'id', autoIncrement: true });
-    };
-    req.onsuccess = (e) => resolve(e.target.result);
-    req.onerror = (e) => reject(e.target.error);
-  });
-}
-
-function idbGetAll(storeName) {
-  return new Promise(async (resolve, reject) => {
-    const db = await openDB();
-    const tx = db.transaction(storeName, 'readonly');
-    const store = tx.objectStore(storeName);
-    const req = store.getAll();
-    req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-function idbClear(storeName) {
-  return new Promise(async (resolve, reject) => {
-    const db = await openDB();
-    const tx = db.transaction(storeName, 'readwrite');
-    const store = tx.objectStore(storeName);
-    const req = store.clear();
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
-}
-
-function idbPut(storeName, value) {
-  return new Promise(async (resolve, reject) => {
-    const db = await openDB();
-    const tx = db.transaction(storeName, 'readwrite');
-    const store = tx.objectStore(storeName);
-    const req = store.put(value);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-function idbGet(storeName, key) {
-  return new Promise(async (resolve, reject) => {
-    const db = await openDB();
-    const tx = db.transaction(storeName, 'readonly');
-    const store = tx.objectStore(storeName);
-    const req = store.get(key);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function ensureMigration() {
-  if (localStorage.getItem('db_migrated')) return;
-  try {
-    const db = await openDB();
-    const usersRaw = localStorage.getItem('usersData');
-    const assignmentsRaw = localStorage.getItem('assignments');
-    const timetablesRaw = localStorage.getItem('timetables');
-
-    if (usersRaw) {
-      const users = JSON.parse(usersRaw);
-      for (const u of users) await idbPut('users', u);
-    } else {
-      try {
-        let res = await fetch('data/users-full.json');
-        if (!res.ok) res = await fetch('data/users.json');
-        const users = await res.json();
-        for (const u of users) await idbPut('users', u);
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    if (assignmentsRaw) {
-      const assigns = JSON.parse(assignmentsRaw);
-      for (const a of assigns) await idbPut('assignments', a);
-    }
-
-    if (timetablesRaw) {
-      const tt = JSON.parse(timetablesRaw);
-      for (const k of Object.keys(tt)) {
-        await idbPut('timetables', { className: k, table: tt[k] });
-      }
-    }
-
-    localStorage.setItem('db_migrated', '1');
-  } catch (e) {
-    console.warn('Migration failed', e);
-  }
-}
-
 async function loadUsers() {
-  await ensureMigration();
-  const arr = await idbGetAll('users');
-  if (arr && arr.length) return arr;
-  // fallback to fetch
+  const local = localStorage.getItem('usersData');
+  if (local) return JSON.parse(local);
+  let res;
   try {
-    let res = await fetch('data/users-full.json');
+    res = await fetch('data/users-full.json');
     if (!res.ok) res = await fetch('data/users.json');
-    const users = await res.json();
-    for (const u of users) await idbPut('users', u);
-    return users;
   } catch (e) {
-    return [];
+    res = await fetch('data/users-full.json');
   }
+  return res.json();
 }
 
-async function saveUsers(users) {
-  await idbClear('users');
-  for (const u of users) await idbPut('users', u);
+function saveUsers(users) {
+  localStorage.setItem('usersData', JSON.stringify(users, null, 2));
 }
 
 function generateJWT(user) {
