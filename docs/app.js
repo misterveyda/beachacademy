@@ -637,17 +637,23 @@ async function saveAssignment(){
   const assignment = { id: nextId, title, desc, class: cls, due, teacherId: currentUser.id, created: new Date().toISOString(), attachment: null, submissions: {}, grades: {} };
   if (fileInput.files && fileInput.files[0]){
     const f = fileInput.files[0];
-    const reader = new FileReader();
-    reader.onload = async function(e){
-      assignment.attachment = { name: f.name, data: e.target.result };
+    try {
+      const fd = new FormData();
+      fd.append('file', f);
+      const resp = await fetch((window.SERVER_URL || '') + '/upload', { method: 'POST', body: fd });
+      if (!resp.ok) throw new Error('upload_failed');
+      const info = await resp.json();
+      assignment.attachment = { name: info.name || f.name, url: info.url };
       assignments.push(assignment);
       await saveAssignments(assignments);
       closeAssignmentModal();
       showNotification(`📢 Assignment "${title}" posted to ${cls}`, 'success');
       alert('Assignment posted');
       renderNav();
-    };
-    reader.readAsDataURL(f);
+    } catch (err) {
+      console.error(err);
+      alert('File upload failed. Try again.');
+    }
   } else {
     assignments.push(assignment);
     await saveAssignments(assignments);
@@ -688,7 +694,7 @@ async function viewAssignment(id){
   const a = assignments.find(x=>x.id===id);
   if(!a) return alert('Not found');
   let html = `<h3>${a.title}</h3><p>${a.desc||''}</p>`;
-  if(a.attachment) html += `<p><a href="${a.attachment.data}" download="${a.attachment.name}">Download attachment</a></p>`;
+  if(a.attachment) html += `<p><a href="${a.attachment.url}" download="${a.attachment.name}">Download attachment</a></p>`;
   html += `<p class="muted">Due: ${a.due||'n/a'}</p>`;
   const body = document.getElementById('submission-modal-body');
   body.innerHTML = html;
@@ -714,17 +720,25 @@ function submitAssignment(){
   const fileInput = document.getElementById('submission-file');
   if(!fileInput || !fileInput.files[0]) return alert('Select file');
   const f = fileInput.files[0];
-  const reader = new FileReader();
-  reader.onload = async function(e){
-    const assignments = await loadAssignments();
-    const a = assignments.find(x=>x.id===assignmentId);
-    a.submissions = a.submissions || {};
-    a.submissions[currentUser.id] = { name: f.name, data: e.target.result, at: new Date().toISOString() };
-    await saveAssignments(assignments);
-    closeSubmissionModal();
-    alert('Submitted');
-  };
-  reader.readAsDataURL(f);
+  (async () => {
+    try {
+      const fd = new FormData();
+      fd.append('file', f);
+      const resp = await fetch((window.SERVER_URL || '') + '/upload', { method: 'POST', body: fd });
+      if (!resp.ok) throw new Error('upload_failed');
+      const info = await resp.json();
+      const assignments = await loadAssignments();
+      const a = assignments.find(x=>x.id===assignmentId);
+      a.submissions = a.submissions || {};
+      a.submissions[currentUser.id] = { name: info.name || f.name, url: info.url, at: new Date().toISOString() };
+      await saveAssignments(assignments);
+      closeSubmissionModal();
+      alert('Submitted');
+    } catch (err) {
+      console.error(err);
+      alert('Submission failed (upload error)');
+    }
+  })();
 }
 
 // Integrate new views into loadView: add Timetable and Assignments for roles
