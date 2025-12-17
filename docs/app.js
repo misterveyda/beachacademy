@@ -1,9 +1,19 @@
 let currentUser = null;
 let isSignup = false;
 
+// configure localForage (IndexedDB wrapper)
+if (window.localforage) {
+  localforage.config({ name: 'BeachAcademy', storeName: 'beachacademy_data' });
+}
+
 async function loadUsers() {
-  const local = localStorage.getItem('usersData');
-  if (local) return JSON.parse(local);
+  if (window.localforage) {
+    const local = await localforage.getItem('usersData');
+    if (local) return local;
+  } else {
+    const local = localStorage.getItem('usersData');
+    if (local) return JSON.parse(local);
+  }
   let res;
   try {
     res = await fetch('data/users-full.json');
@@ -14,8 +24,12 @@ async function loadUsers() {
   return res.json();
 }
 
-function saveUsers(users) {
-  localStorage.setItem('usersData', JSON.stringify(users, null, 2));
+async function saveUsers(users) {
+  if (window.localforage) {
+    await localforage.setItem('usersData', users);
+  } else {
+    localStorage.setItem('usersData', JSON.stringify(users, null, 2));
+  }
 }
 
 function generateJWT(user) {
@@ -54,7 +68,7 @@ async function signup() {
   if (role === 'Student') newUser.class = 'Grade 7';
 
   users.push(newUser);
-  saveUsers(users);
+  await saveUsers(users);
 
   localStorage.setItem('token', generateJWT(newUser));
   localStorage.setItem('user', JSON.stringify(newUser));
@@ -369,7 +383,7 @@ async function saveUserFromModal() {
     const nextId = users.length ? Math.max(...users.map(u => u.id)) + 1 : 1;
     users.push({ id: nextId, name, email, password, role, class: cls });
   }
-  saveUsers(users);
+  await saveUsers(users);
   closeUserModal();
   renderNav();
 }
@@ -378,7 +392,7 @@ async function deleteUser(id) {
   if (!confirm('Are you sure you want to delete this user?')) return;
   const users = await loadUsers();
   const filtered = users.filter(u => u.id !== id);
-  saveUsers(filtered);
+  await saveUsers(filtered);
   // refresh
   renderNav();
 }
@@ -422,7 +436,7 @@ async function saveGrades(userId) {
   const idx = users.findIndex(u => u.id === userId);
   if (idx === -1) return alert('User not found');
   users[idx].grades = grades;
-  saveUsers(users);
+  await saveUsers(users);
   closeGradeModal();
   alert('Grades saved');
 }
@@ -459,7 +473,7 @@ async function saveAttendance(userId) {
   if (idx === -1) return alert('User not found');
   users[idx].attendance = users[idx].attendance || [];
   users[idx].attendance.push({ date, status });
-  saveUsers(users);
+  await saveUsers(users);
   closeAttendanceModal();
   alert('Attendance saved');
 }
@@ -512,18 +526,28 @@ async function saveAssignedClasses() {
   const newClass = document.getElementById('new-class-name').value.trim();
   if (newClass) checked.push(newClass);
   teacher.assignedClasses = checked;
-  saveUsers(users);
+  await saveUsers(users);
   closeAssignClasses();
   alert('Assigned classes saved');
   renderNav();
 }
 
 // Timetable storage helpers
-function loadTimetables() {
+async function loadTimetables() {
+  if (window.localforage) {
+    const t = await localforage.getItem('timetables');
+    return t || {};
+  }
   const raw = localStorage.getItem('timetables');
   return raw ? JSON.parse(raw) : {};
 }
-function saveTimetables(t) { localStorage.setItem('timetables', JSON.stringify(t, null,2)); }
+async function saveTimetables(t) {
+  if (window.localforage) {
+    await localforage.setItem('timetables', t);
+  } else {
+    localStorage.setItem('timetables', JSON.stringify(t, null,2));
+  }
+}
 
 // Open timetable modal to view/edit for a class
 async function openTimetableModal(className) {
@@ -560,21 +584,34 @@ function closeTimetableModal() {
   document.getElementById('timetable-modal').classList.add('hidden');
 }
 
-function saveTimetable() {
+async function saveTimetable() {
   const className = document.getElementById('timetable-modal').getAttribute('data-class');
   const selects = Array.from(document.querySelectorAll('#timetable-modal-body select'));
   const table = {};
   selects.forEach(s=>{ const k=s.getAttribute('data-key'); if(s.value) table[k]=s.value; });
-  const timetables = loadTimetables();
+  const timetables = await loadTimetables();
   timetables[className]=table;
-  saveTimetables(timetables);
+  await saveTimetables(timetables);
   closeTimetableModal();
   alert('Timetable saved');
 }
 
-// Assignments: stored in localStorage
-function loadAssignments() { const raw = localStorage.getItem('assignments'); return raw?JSON.parse(raw):[]; }
-function saveAssignments(a){ localStorage.setItem('assignments', JSON.stringify(a, null,2)); }
+// Assignments: moved to IndexedDB via localforage when available
+async function loadAssignments() {
+  if (window.localforage) {
+    const a = await localforage.getItem('assignments');
+    return a || [];
+  }
+  const raw = localStorage.getItem('assignments');
+  return raw ? JSON.parse(raw) : [];
+}
+async function saveAssignments(a){
+  if (window.localforage) {
+    await localforage.setItem('assignments', a);
+  } else {
+    localStorage.setItem('assignments', JSON.stringify(a, null,2));
+  }
+}
 
 // Teacher: open assignment modal
 function openAssignmentModal() {
@@ -595,16 +632,16 @@ async function saveAssignment(){
   const due = document.getElementById('assignment-due').value;
   const fileInput = document.getElementById('assignment-file');
   if(!title || !cls) return alert('Title and class required');
-  const assignments = loadAssignments();
+  const assignments = await loadAssignments();
   const nextId = assignments.length? Math.max(...assignments.map(a=>a.id))+1 : 1;
   const assignment = { id: nextId, title, desc, class: cls, due, teacherId: currentUser.id, created: new Date().toISOString(), attachment: null, submissions: {}, grades: {} };
   if (fileInput.files && fileInput.files[0]){
     const f = fileInput.files[0];
     const reader = new FileReader();
-    reader.onload = function(e){
+    reader.onload = async function(e){
       assignment.attachment = { name: f.name, data: e.target.result };
       assignments.push(assignment);
-      saveAssignments(assignments);
+      await saveAssignments(assignments);
       closeAssignmentModal();
       showNotification(`📢 Assignment "${title}" posted to ${cls}`, 'success');
       alert('Assignment posted');
@@ -613,7 +650,7 @@ async function saveAssignment(){
     reader.readAsDataURL(f);
   } else {
     assignments.push(assignment);
-    saveAssignments(assignments);
+    await saveAssignments(assignments);
     closeAssignmentModal();
     showNotification(`📢 Assignment "${title}" posted to ${cls}`, 'success');
     alert('Assignment posted');
@@ -623,7 +660,7 @@ async function saveAssignment(){
 
 // Student: view assignments for their class
 async function renderAssignmentsView(content) {
-  const assignments = loadAssignments();
+  const assignments = await loadAssignments();
   const users = await loadUsers();
   const myClass = currentUser.class;
   const list = assignments.filter(a => a.class === myClass || (currentUser.role==='Teacher' && a.teacherId===currentUser.id) );
@@ -646,8 +683,8 @@ async function renderAssignmentsView(content) {
   content.innerHTML = html;
 }
 
-function viewAssignment(id){
-  const assignments = loadAssignments();
+async function viewAssignment(id){
+  const assignments = await loadAssignments();
   const a = assignments.find(x=>x.id===id);
   if(!a) return alert('Not found');
   let html = `<h3>${a.title}</h3><p>${a.desc||''}</p>`;
@@ -659,8 +696,8 @@ function viewAssignment(id){
   document.getElementById('submission-modal').classList.remove('hidden');
 }
 
-function openSubmissionModal(assignmentId){
-  const assignments = loadAssignments();
+async function openSubmissionModal(assignmentId){
+  const assignments = await loadAssignments();
   const a = assignments.find(x=>x.id===assignmentId);
   if(!a) return alert('Not found');
   const body = document.getElementById('submission-modal-body');
@@ -679,11 +716,11 @@ function submitAssignment(){
   const f = fileInput.files[0];
   const reader = new FileReader();
   reader.onload = async function(e){
-    const assignments = loadAssignments();
+    const assignments = await loadAssignments();
     const a = assignments.find(x=>x.id===assignmentId);
     a.submissions = a.submissions || {};
     a.submissions[currentUser.id] = { name: f.name, data: e.target.result, at: new Date().toISOString() };
-    saveAssignments(assignments);
+    await saveAssignments(assignments);
     closeSubmissionModal();
     alert('Submitted');
   };
